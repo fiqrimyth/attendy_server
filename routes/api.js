@@ -3,6 +3,7 @@ const router = express.Router();
 const attendanceController = require("../controller/attendanceController");
 const leaveHistoryController = require("../controller/leaveHistoryController");
 const leaveRequestController = require("../controller/leaveRequestController");
+const leaveTypeController = require("../controller/leaveTypeController");
 const blacklistedTokenController = require("../controller/blacklistedTokenController");
 const profileRequestController = require("../controller/profileRequestController");
 const passwordResetController = require("../controller/passwordResetController");
@@ -31,6 +32,18 @@ router.get(
   auth,
   attendanceController.getAttendanceDetail
 );
+
+// Leave Type
+router.post("/leave-type", auth, leaveTypeController.createLeaveType);
+router.get("/leave-type", auth, leaveTypeController.getAllLeaveTypes);
+router.get("/leave-type/:id", auth, leaveTypeController.getLeaveTypeById);
+router.get(
+  "/leave-typeId/:userId",
+  auth,
+  leaveTypeController.getLeaveTypeByUserId
+);
+router.put("/leave-type/:id", auth, leaveTypeController.updateLeaveType);
+router.delete("/leave-type/:id", auth, leaveTypeController.deleteLeaveType);
 
 // Leave History
 router.get(

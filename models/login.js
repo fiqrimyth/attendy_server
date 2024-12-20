@@ -87,7 +87,7 @@ userSchema.methods.generateAuthToken = function () {
     },
     process.env.JWT_SECRET,
     {
-      expiresIn: "7d", // Token berlaku 7 hari
+      expiresIn: "1d", // Token berlaku 7 hari
     }
   );
 };

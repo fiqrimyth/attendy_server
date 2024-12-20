@@ -86,7 +86,15 @@ const userSchema = new mongoose.Schema(
     },
     isActive: {
       type: Boolean,
-      default: true,
+      default: false,
+    },
+    activationToken: {
+      type: String,
+      select: false,
+    },
+    activationExpires: {
+      type: Date,
+      select: false,
     },
   },
   {
@@ -115,6 +123,10 @@ const userSchema = new mongoose.Schema(
           deviceId: ret.deviceId,
           password: ret.password,
           isActive: ret.isActive,
+          ...(ret.activationToken && { activationToken: ret.activationToken }),
+          ...(ret.activationExpires && {
+            activationExpires: ret.activationExpires,
+          }),
         };
       },
     },
@@ -134,5 +146,27 @@ userSchema.pre("save", async function (next) {
     next(error);
   }
 });
+
+userSchema.methods.generateActivationToken = function () {
+  this.activationToken = uuidv4();
+  // Menggunakan durasi yang sama dengan auth token
+  const tokenDuration = process.env.JWT_EXPIRES_IN || "1d"; // default 1 hari jika tidak diset
+
+  // Konversi durasi ke milliseconds
+  let expiresIn;
+  if (tokenDuration.endsWith("d")) {
+    expiresIn = parseInt(tokenDuration) * 24 * 60 * 60 * 1000;
+  } else if (tokenDuration.endsWith("h")) {
+    expiresIn = parseInt(tokenDuration) * 60 * 60 * 1000;
+  } else {
+    expiresIn = 24 * 60 * 60 * 1000; // default 24 jam
+  }
+
+  this.activationExpires = new Date(Date.now() + expiresIn);
+};
+
+userSchema.methods.isActivationTokenValid = function (token) {
+  return this.activationToken === token && this.activationExpires > Date.now();
+};
 
 module.exports = mongoose.model("User", userSchema);

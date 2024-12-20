@@ -1,5 +1,6 @@
 const Attendance = require("../models/Attendance");
 const ResponseWrapper = require("../utils/responseWrapper");
+const User = require("../models/User");
 
 // Membuat absensi baru (clock in)
 exports.clockIn = async (req, res) => {
@@ -16,20 +17,16 @@ exports.clockIn = async (req, res) => {
           type: "Point",
           coordinates: location,
         },
-        status: "ON_TIME", // Logic untuk status bisa disesuaikan
+        status: "ON_TIME",
         dateClockIn: new Date(),
         photo,
       },
     });
 
     const savedAttendance = await attendance.save();
-    return ResponseWrapper.success(
-      res,
-      "Berhasil melakukan clock in",
-      savedAttendance
-    );
+    return ResponseWrapper.created(res, savedAttendance);
   } catch (error) {
-    return ResponseWrapper.error(res, "Gagal melakukan clock in");
+    return ResponseWrapper.internalServerError(res, "Gagal melakukan clock in");
   }
 };
 
@@ -41,7 +38,7 @@ exports.clockOut = async (req, res) => {
   try {
     const attendance = await Attendance.findById(attendanceId);
     if (!attendance) {
-      return ResponseWrapper.error(res, "Data absensi tidak ditemukan");
+      return ResponseWrapper.notFound(res, "Data absensi tidak ditemukan");
     }
 
     attendance.clockOut = {
@@ -62,17 +59,32 @@ exports.clockOut = async (req, res) => {
       updatedAttendance
     );
   } catch (error) {
-    return ResponseWrapper.error(res, "Gagal melakukan clock out");
+    return ResponseWrapper.internalServerError(
+      res,
+      "Gagal melakukan clock out"
+    );
   }
 };
 
 // Mendapatkan riwayat absensi berdasarkan userId
 exports.getAttendanceHistory = async (req, res) => {
-  const { userId } = req.params;
-  const { startDate, endDate } = req.query;
-
   try {
-    const query = { userId };
+    const userId = req.params.userId;
+
+    // Validasi parameter userId
+    if (userId === ":userId" || !userId) {
+      return ResponseWrapper.badRequest(res, "UserId tidak valid");
+    }
+
+    // Cek apakah user exists
+    const user = await User.findOne({ userId: userId });
+    if (!user) {
+      return ResponseWrapper.notFound(res, "User tidak ditemukan");
+    }
+
+    const query = { userId: user.userId };
+    const { startDate, endDate, page = 1, limit = 10 } = req.query;
+
     if (startDate && endDate) {
       query.date = {
         $gte: new Date(startDate),
@@ -81,16 +93,60 @@ exports.getAttendanceHistory = async (req, res) => {
     }
 
     const attendances = await Attendance.find(query)
-      .populate("shiftId")
+      .populate("shiftId", "name startTime endTime")
       .sort({ date: -1 });
+
+    // Kelompokkan data berdasarkan bulan
+    const groupedAttendances = attendances.reduce((acc, attendance) => {
+      const date = new Date(attendance.date);
+      const monthYear = new Intl.DateTimeFormat("id-ID", {
+        month: "long",
+        year: "numeric",
+      }).format(date);
+
+      if (!acc[monthYear]) {
+        acc[monthYear] = [];
+      }
+
+      acc[monthYear].push({
+        userId: attendance.userId,
+        time: attendance.clockIn?.time || attendance.clockOut?.time,
+        type: attendance.clockOut ? "Clock Out" : "Clock In",
+        date: new Intl.DateTimeFormat("id-ID", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        }).format(date),
+        status: attendance.clockIn?.status || attendance.clockOut?.status,
+        shift: attendance.shiftId,
+        location: attendance.clockIn?.location || attendance.clockOut?.location,
+        photo: attendance.clockIn?.photo || attendance.clockOut?.photo,
+      });
+
+      return acc;
+    }, {});
+
+    // Konversi ke format yang diinginkan
+    const formattedData = Object.entries(groupedAttendances).map(
+      ([month, data]) => ({
+        month,
+        attendances: data,
+      })
+    );
 
     return ResponseWrapper.success(
       res,
       "Berhasil mengambil riwayat absensi",
-      attendances
+      formattedData
     );
   } catch (error) {
-    return ResponseWrapper.error(res, "Gagal mengambil riwayat absensi");
+    return ResponseWrapper.internalServerError(res, {
+      message: "Gagal mengambil riwayat absensi",
+      exception: error.message,
+      detail: null,
+      status: "500",
+      datas: [],
+    });
   }
 };
 
@@ -104,7 +160,7 @@ exports.getAttendanceDetail = async (req, res) => {
     );
 
     if (!attendance) {
-      return ResponseWrapper.error(res, "Data absensi tidak ditemukan");
+      return ResponseWrapper.notFound(res, "Data absensi tidak ditemukan");
     }
 
     return ResponseWrapper.success(
@@ -113,6 +169,9 @@ exports.getAttendanceDetail = async (req, res) => {
       attendance
     );
   } catch (error) {
-    return ResponseWrapper.error(res, "Gagal mengambil detail absensi");
+    return ResponseWrapper.internalServerError(
+      res,
+      "Gagal mengambil detail absensi"
+    );
   }
 };

@@ -71,11 +71,6 @@ const leaveSchema = new mongoose.Schema(
       enum: ["PENDING", "APPROVED", "REJECTED"],
       default: "PENDING",
     },
-    employeeId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Employee",
-      required: true,
-    },
   },
   {
     timestamps: true,
@@ -87,7 +82,6 @@ const leaveSchema = new mongoose.Schema(
         return {
           id: ret.id,
           userId: ret.userId,
-          employeeId: ret.employeeId,
           status: ret.status,
           createdAt: ret.createdAt,
           updatedAt: ret.updatedAt,
@@ -106,4 +100,4 @@ const leaveSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("Leave", leaveSchema);
+module.exports = mongoose.model("LeaveHistory", leaveSchema);

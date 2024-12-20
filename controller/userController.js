@@ -40,7 +40,9 @@ exports.login = async (req, res) => {
     }
 
     // Cari user dan pastikan password field diambil
-    const user = await User.findOne({ email }).select("+password");
+    const user = await User.findOne({ email }).select(
+      "+password +activationToken +activationExpires"
+    );
     if (!user) {
       return ResponseWrapper.badRequest(res, "Email atau password salah");
     }
@@ -106,6 +108,11 @@ exports.login = async (req, res) => {
           count: user.notification.count,
         },
         attendanceHistory,
+        isActive: user.isActive,
+        ...(user.activationToken && { activationToken: user.activationToken }),
+        ...(user.activationExpires && {
+          activationExpires: user.activationExpires,
+        }),
       },
     };
 

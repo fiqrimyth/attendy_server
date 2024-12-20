@@ -1,50 +1,51 @@
-const { Leave } = require("../models/leaveHistory");
+const LeaveHistory = require("../models/leaveHistory");
 const ResponseWrapper = require("../utils/responseWrapper");
 
 // Fungsi untuk mendapatkan history cuti
 exports.getLeaveHistory = async (req, res) => {
   try {
-    const leaves = await Leave.find({
-      employeeId: req.params.employeeId,
+    const leaves = await LeaveHistory.find({
+      employeeId: req.params.userId,
       leaveCategory: "ANNUAL",
     })
-      .sort({ createdAt: -1 }) // Urutkan dari yang terbaru
+      .sort({ createdAt: -1 })
       .select({
         startDate: 1,
         endDate: 1,
         status: 1,
         leaveReason: 1,
+        attachmentFile: 1,
       });
 
-    // Hitung durasi cuti dalam hari
     const formattedLeaves = leaves.map((leave) => {
-      const start = new Date(leave.startDate);
-      const end = new Date(leave.endDate);
-      const durationInDays =
-        Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-
       return {
-        id: leave._id,
-        date: start.toLocaleDateString(), // Format: 22 April 2024
-        type: "Cuti Tahunan",
-        duration: `${durationInDays} Hari`,
+        id: leave.id,
+        startDate: leave.startDate,
+        endDate: leave.endDate,
         status: leave.status,
-        reason: leave.leaveReason,
+        leaveReason: leave.leaveReason,
+        attachmentFile: leave.attachmentFile,
       };
     });
 
-    res.json(formattedLeaves);
+    return ResponseWrapper.success(
+      res,
+      "Berhasil mengambil riwayat cuti",
+      formattedLeaves
+    );
   } catch (error) {
-    return ResponseWrapper.error(res, "Gagal mengambil riwayat cuti");
+    return ResponseWrapper.internalServerError(
+      res,
+      "Gagal mengambil riwayat cuti"
+    );
   }
 };
 
-// Fungsi untuk mendapatkan history izin
 exports.getPermissionHistory = async (req, res) => {
   try {
-    const permissions = await Leave.find({
-      employeeId: req.params.employeeId,
-      leaveCategory: { $in: ["SICK", "OTHER"] }, // Mengambil izin sakit dan lainnya
+    const permissions = await LeaveHistory.find({
+      employeeId: req.params.userId,
+      leaveCategory: { $in: ["SICK", "OTHER"] },
     })
       .sort({ createdAt: -1 })
       .select({
@@ -56,31 +57,34 @@ exports.getPermissionHistory = async (req, res) => {
       });
 
     const formattedPermissions = permissions.map((permission) => {
-      const date = new Date(permission.leaveDate);
       return {
-        id: permission._id,
-        date: date.toLocaleDateString(),
-        type:
-          permission.leaveCategory === "SICK" ? "Izin Sakit" : "Izin Lainnya",
-        duration: "1 Hari",
+        id: permission.id,
+        leaveDate: permission.leaveDate,
+        leaveCategory: permission.leaveCategory,
         status: permission.status,
-        reason: permission.leaveReason,
-        attachment: permission.attachmentFile,
+        leaveReason: permission.leaveReason,
+        attachmentFile: permission.attachmentFile,
       };
     });
 
-    res.json(formattedPermissions);
+    return ResponseWrapper.success(
+      res,
+      "Berhasil mengambil riwayat izin",
+      formattedPermissions
+    );
   } catch (error) {
-    return ResponseWrapper.error(res, "Gagal mengambil riwayat izin");
+    return ResponseWrapper.internalServerError(
+      res,
+      "Gagal mengambil riwayat izin"
+    );
   }
 };
 
-// Fungsi untuk mendapatkan history lembur
 exports.getOvertimeHistory = async (req, res) => {
   try {
-    const overtimes = await Leave.find({
-      employeeId: req.params.employeeId,
-      overtimeDate: { $exists: true }, // Memastikan ini adalah data lembur
+    const overtimes = await LeaveHistory.find({
+      employeeId: req.params.userId,
+      overtimeDate: { $exists: true },
     })
       .sort({ createdAt: -1 })
       .select({
@@ -89,22 +93,30 @@ exports.getOvertimeHistory = async (req, res) => {
         endTime: 1,
         status: 1,
         overtimeReason: 1,
+        attachmentFile: 1,
       });
 
     const formattedOvertimes = overtimes.map((overtime) => {
-      const date = new Date(overtime.overtimeDate);
       return {
-        id: overtime._id,
-        date: date.toLocaleDateString(),
-        type: "Lembur",
-        duration: `${overtime.startTime} - ${overtime.endTime}`,
+        id: overtime.id,
+        overtimeDate: overtime.overtimeDate,
+        startTime: overtime.startTime,
+        endTime: overtime.endTime,
         status: overtime.status,
-        reason: overtime.overtimeReason,
+        overtimeReason: overtime.overtimeReason,
+        attachmentFile: overtime.attachmentFile,
       };
     });
 
-    res.json(formattedOvertimes);
+    return ResponseWrapper.success(
+      res,
+      "Berhasil mengambil riwayat lembur",
+      formattedOvertimes
+    );
   } catch (error) {
-    return ResponseWrapper.error(res, "Gagal mengambil riwayat lembur");
+    return ResponseWrapper.internalServerError(
+      res,
+      "Gagal mengambil riwayat lembur"
+    );
   }
 };
